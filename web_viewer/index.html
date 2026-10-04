@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VEO360 Digital Twin - Automated Tag Viewer</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      #panorama {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Top control toolbar */
+      #toolbar {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 1000;
+        background: rgba(20, 24, 33, 0.85);
+        backdrop-filter: blur(8px);
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+      }
+      #toolbar select {
+        background: #2f3640;
+        color: #f5f6fa;
+        border: 1px solid #718093;
+        padding: 6px 10px;
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      /* Hotspot Styling */
+      .veo-pin {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #00d2d3;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 16px rgba(0, 210, 211, 0.8);
+        transform: translate(-18px, -18px);
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease;
+      }
+      .veo-pin:hover {
+        transform: translate(-18px, -18px) scale(1.25);
+        background: #ff9f43;
+        box-shadow: 0 0 20px rgba(255, 159, 67, 0.9);
+      }
+      .veo-pin svg {
+        width: 20px;
+        height: 20px;
+        fill: #1e272e;
+      }
+
+      /* Detail Modal Card */
+      #modal {
+        display: none;
+        position: fixed;
+        right: 24px;
+        top: 24px;
+        width: 340px;
+        background: rgba(18, 22, 31, 0.95);
+        color: #fff;
+        padding: 22px;
+        border-radius: 12px;
+        border: 1px solid rgba(0, 210, 211, 0.3);
+        backdrop-filter: blur(12px);
+        z-index: 9999;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6);
+      }
+      #modal h3 {
+        margin: 0 0 10px 0;
+        color: #00d2d3;
+        font-size: 1.1rem;
+      }
+      #modal p {
+        margin: 6px 0;
+        font-size: 0.85rem;
+        color: #dcdde1;
+        line-height: 1.4;
+      }
+      #modal .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: #10ac84;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #fff;
+      }
+      #modal a {
+        display: block;
+        text-align: center;
+        margin-top: 14px;
+        padding: 10px 12px;
+        background: #0984e3;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: background 0.2s;
+      }
+      #modal a:hover {
+        background: #00cec9;
+        color: #1e272e;
+      }
+      #modal .close-btn {
+        position: absolute;
+        right: 14px;
+        top: 12px;
+        cursor: pointer;
+        color: #8395a7;
+        font-size: 18px;
+      }
+
+      /* Pannellum wrapper container */
+      .pnlm-hotspot-base {
+        visibility: visible !important;
+        display: block !important;
+        z-index: 999 !important;
+      }
+
+      /* Encircle / Bounding Box Hotspot Style */
+      .encircle-box {
+        border: 3px solid #00d2d3 !important;
+        border-radius: 8px !important;
+        background-color: rgba(0, 210, 211, 0.18) !important;
+        box-shadow:
+          0 0 14px rgba(0, 210, 211, 0.6),
+          inset 0 0 10px rgba(0, 210, 211, 0.3) !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        transition: all 0.25s ease !important;
+      }
+
+      .encircle-box:hover {
+        border-color: #ff9f43 !important;
+        background-color: rgba(255, 159, 67, 0.28) !important;
+        box-shadow:
+          0 0 20px rgba(255, 159, 67, 0.8),
+          inset 0 0 12px rgba(255, 159, 67, 0.4) !important;
+      }
+
+      /* Text tag badge pinned to the top-left corner of the box */
+      .box-tag-label {
+        background: rgba(18, 22, 31, 0.9);
+        color: #00d2d3;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px 0 4px 0;
+        border: 1px solid rgba(0, 210, 211, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      .encircle-box:hover .box-tag-label {
+        color: #ff9f43;
+        border-color: #ff9f43;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar">
+      <label for="scanSelect"><strong>Digital Twin Scan:</strong></label>
+      <select id="scanSelect"></select>
+      <span id="tagCountBadge"></span>
+    </div>
+
+    <div id="panorama"></div>
+
+    <div id="modal">
+      <span
+        class="close-btn"
+        onclick="document.getElementById('modal').style.display = 'none'"
+        >✕</span
+      >
+      <h3 id="modal-title">Asset Info</h3>
+      <p><strong>Tag ID:</strong> <span id="modal-tag"></span></p>
+      <p>
+        <strong>Status:</strong> <span class="badge" id="modal-status"></span>
+      </p>
+      <p><strong>AI Confidence:</strong> <span id="modal-conf"></span></p>
+      <p>
+        <strong>Spherical Yaw / Pitch:</strong>
+        <span id="modal-spherical"></span>
+      </p>
+      <p>
+        <strong>3D Coordinates (X, Y, Z):</strong>
+        <span id="modal-coords"></span>
+      </p>
+      <a id="modal-link" href="#" target="_blank">Open Technical Manual ↗</a>
+    </div>
+
+    <script>
+      let viewer = null;
+      let tagsData = null;
+
+      fetch("tags.json")
+        .then((res) => {
+          if (!res.ok)
+            throw new Error("Could not load tags.json: HTTP " + res.status);
+          return res.json();
+        })
+        .then((data) => {
+          tagsData = data;
+          initScanSelector(data);
+        })
+        .catch((err) => {
+          console.error(err);
+          alert("Error loading tags.json. Check browser console (F12).");
+        });
+
+      function initScanSelector(data) {
+        // Group available scans
+        const scans = [...new Set(data.tags.map((t) => t.source_scan))];
+        const select = document.getElementById("scanSelect");
+        select.innerHTML = "";
+
+        scans.forEach((scan) => {
+          const count = data.tags.filter((t) => t.source_scan === scan).length;
+          const opt = document.createElement("option");
+          opt.value = scan;
+          opt.textContent = `${scan} (${count} tags)`;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener("change", () =>
+          loadPanoramaForScan(select.value),
+        );
+
+        // Load first scan
+        if (scans.length > 0) {
+          loadPanoramaForScan(scans[0]);
+        }
+      }
+
+      function createHotspotElement(tag) {
+        const el = document.createElement("div");
+        el.className = "veo-pin";
+        el.title = `${tag.tag_id}: ${tag.asset_key}`;
+        // Custom SVG Pin icon
+        el.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+      `;
+        el.onclick = () => showModal(tag);
+        return el;
+      }
+
+      function loadPanoramaForScan(scanName) {
+        const filteredTags = tagsData.tags.filter(
+          (t) => t.source_scan === scanName,
+        );
+        document.getElementById("tagCountBadge").textContent =
+          `Showing ${filteredTags.length} tag(s)`;
+
+        // Assume projected scan canvas dimensions
+        const panoW = 2048;
+        const panoH = 1024;
+
+        const hotspots = filteredTags.map((tag) => {
+          const box = tag["2d_bounding_box"];
+          const boxW = Math.max(40, box.x2 - box.x1);
+          const boxH = Math.max(40, box.y2 - box.y1);
+
+          // Approximate angular dimension in degrees
+          const widthDeg = (boxW / panoW) * 360;
+          const heightDeg = (boxH / panoH) * 180;
+
+          return {
+            pitch: Number(tag.spatial_anchor_3d.spherical.pitch_deg),
+            yaw: Number(tag.spatial_anchor_3d.spherical.yaw_deg),
+            cssClass: "encircle-box",
+            createTooltipFunc: (hotspotDiv) => {
+              // Enforce box size calculated from bounding box
+              hotspotDiv.style.width = Math.min(boxW, 320) + "px";
+              hotspotDiv.style.height = Math.min(boxH, 220) + "px";
+              hotspotDiv.style.marginLeft = -(Math.min(boxW, 320) / 2) + "px";
+              hotspotDiv.style.marginTop = -(Math.min(boxH, 220) / 2) + "px";
+
+              // Add corner badge
+              const badge = document.createElement("div");
+              badge.className = "box-tag-label";
+              badge.textContent = `${tag.tag_id}: ${tag.asset_key} (${(tag.confidence * 100).toFixed(0)}%)`;
+              hotspotDiv.appendChild(badge);
+            },
+            clickHandlerFunc: () => showModal(tag),
+          };
+        });
+
+        const initialYaw =
+          filteredTags.length > 0
+            ? Number(filteredTags[0].spatial_anchor_3d.spherical.yaw_deg)
+            : 0;
+        const initialPitch =
+          filteredTags.length > 0
+            ? Number(filteredTags[0].spatial_anchor_3d.spherical.pitch_deg)
+            : 0;
+
+        if (viewer) {
+          try {
+            viewer.destroy();
+          } catch (e) {}
+        }
+        document.getElementById("panorama").innerHTML = "";
+
+        viewer = pannellum.viewer("panorama", {
+          type: "equirectangular",
+          panorama: "/hackathon-veo-challenge/data/scans/extracted/" + scanName,
+          autoLoad: true,
+          compass: true,
+          yaw: initialYaw,
+          pitch: initialPitch,
+          hfov: 100,
+          hotSpots: hotspots,
+        });
+      }
+      
+      function showModal(tag) {
+        document.getElementById("modal-title").innerText =
+          tag.metadata.asset_name;
+        document.getElementById("modal-tag").innerText =
+          `${tag.tag_id} (${tag.asset_key})`;
+        document.getElementById("modal-status").innerText = tag.metadata.status;
+        document.getElementById("modal-conf").innerText =
+          (tag.confidence * 100).toFixed(1) + "%";
+        document.getElementById("modal-spherical").innerText =
+          `Yaw: ${tag.spatial_anchor_3d.spherical.yaw_deg}°, Pitch: ${tag.spatial_anchor_3d.spherical.pitch_deg}°`;
+        document.getElementById("modal-coords").innerText =
+          `X: ${tag.spatial_anchor_3d.cartesian_3d.x}m | Y: ${tag.spatial_anchor_3d.cartesian_3d.y}m | Z: ${tag.spatial_anchor_3d.cartesian_3d.z}m`;
+        document.getElementById("modal-link").href =
+          tag.metadata.documentation_url;
+        document.getElementById("modal").style.display = "block";
+      }
+    </script>
+  </body>
+</html>

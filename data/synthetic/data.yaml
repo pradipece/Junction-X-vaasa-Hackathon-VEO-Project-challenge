@@ -1,0 +1,6 @@
+path: /Users/ngoquangthang/Documents/SourceCode/hackathon-veo-challenge/data/synthetic
+train: images/train
+val: images/train
+
+names:
+  0: REX615
